@@ -692,12 +692,10 @@ struct ref_store {
 };
 
 /*
- * Parse contents of a loose ref file. *failure_errno maybe be set to EINVAL for
- * invalid contents.
+ * Parse contents of a loose ref file.
  */
 int parse_loose_ref_contents(const char *buf, struct object_id *oid,
-			     struct strbuf *referent, unsigned int *type,
-			     int *failure_errno);
+			     struct strbuf *referent, unsigned int *type);
 
 /*
  * Fill in the generic part of refs and add it to our collection of

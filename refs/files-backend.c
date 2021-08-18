@@ -355,7 +355,6 @@ static int files_read_raw_ref(struct ref_store *ref_store, const char *refname,
 	int fd;
 	int ret = -1;
 	int remaining_retries = 3;
-	int myerr = 0;
 
 	*type = 0;
 	strbuf_reset(&sb_path);
@@ -383,13 +382,11 @@ stat_ref:
 
 	if (lstat(path, &st) < 0) {
 		int ignore_errno;
-		myerr = errno;
-		errno = 0;
-		if (myerr != ENOENT)
+		if (errno != ENOENT)
 			goto out;
 		if (refs_read_raw_ref(refs->packed_ref_store, refname, oid,
 				      referent, type, &ignore_errno)) {
-			myerr = ENOENT;
+			errno = ENOENT;
 			goto out;
 		}
 		ret = 0;
@@ -400,9 +397,7 @@ stat_ref:
 	if (S_ISLNK(st.st_mode)) {
 		strbuf_reset(&sb_contents);
 		if (strbuf_readlink(&sb_contents, path, st.st_size) < 0) {
-			myerr = errno;
-			errno = 0;
-			if (myerr == ENOENT || myerr == EINVAL)
+			if (errno == ENOENT || errno == EINVAL)
 				/* inconsistent with lstat; retry */
 				goto stat_ref;
 			else
@@ -432,7 +427,7 @@ stat_ref:
 		 */
 		if (refs_read_raw_ref(refs->packed_ref_store, refname, oid,
 				      referent, type, &ignore_errno)) {
-			myerr = EISDIR;
+			errno = EISDIR;
 			goto out;
 		}
 		ret = 0;
@@ -445,8 +440,7 @@ stat_ref:
 	 */
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		myerr = errno;
-		if (myerr == ENOENT && !S_ISLNK(st.st_mode))
+		if (errno == ENOENT && !S_ISLNK(st.st_mode))
 			/* inconsistent with lstat; retry */
 			goto stat_ref;
 		else
@@ -454,28 +448,26 @@ stat_ref:
 	}
 	strbuf_reset(&sb_contents);
 	if (strbuf_read(&sb_contents, fd, 256) < 0) {
+		int save_errno = errno;
 		close(fd);
+		errno = save_errno;
 		goto out;
 	}
 	close(fd);
 	strbuf_rtrim(&sb_contents);
 	buf = sb_contents.buf;
 
-	ret = parse_loose_ref_contents(buf, oid, referent, type, &myerr);
+	ret = parse_loose_ref_contents(buf, oid, referent, type);
 
 out:
-	if (ret && !myerr)
-		BUG("returning non-zero %d, should have set myerr!", ret);
-	*failure_errno = myerr;
-
+	*failure_errno = errno;
 	strbuf_release(&sb_path);
 	strbuf_release(&sb_contents);
 	return ret;
 }
 
 int parse_loose_ref_contents(const char *buf, struct object_id *oid,
-			     struct strbuf *referent, unsigned int *type,
-			     int *failure_errno)
+			     struct strbuf *referent, unsigned int *type)
 {
 	const char *p;
 	if (skip_prefix(buf, "ref:", &buf)) {
@@ -494,7 +486,7 @@ int parse_loose_ref_contents(const char *buf, struct object_id *oid,
 	if (parse_oid_hex(buf, oid, &p) ||
 	    (*p != '\0' && !isspace(*p))) {
 		*type |= REF_ISBROKEN;
-		*failure_errno = EINVAL;
+		errno = EINVAL;
 		return -1;
 	}
 	return 0;
