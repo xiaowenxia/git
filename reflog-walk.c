@@ -158,9 +158,10 @@ int add_reflog_for_walk(struct reflog_walk_info *info,
 		}
 		reflogs = read_complete_reflog(branch);
 		if (!reflogs || reflogs->nr == 0) {
+			struct object_id oid;
 			char *b;
 			int ret = dwim_log(branch, strlen(branch),
-					   NULL, &b);
+					   &oid, &b);
 			if (ret > 1)
 				free(b);
 			else if (ret == 1) {
