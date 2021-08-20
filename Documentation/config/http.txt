@@ -235,6 +235,10 @@ http.lowSpeedLimit, http.lowSpeedTime::
 	Can be overridden by the `GIT_HTTP_LOW_SPEED_LIMIT` and
 	`GIT_HTTP_LOW_SPEED_TIME` environment variables.
 
+http.maxReceiveSpeed::
+	Limit the speed of receiving traffic, defaults to unlimited. Can be
+	overridden by the `GIT_HTTP_MAX_RECEIVE_SPEED` environment variable.
+
 http.noEPSV::
 	A boolean which disables using of EPSV ftp command by curl.
 	This can helpful with some "poor" ftp servers which don't

@@ -83,6 +83,7 @@ static const char *ssl_pinnedkey;
 static const char *ssl_cainfo;
 static long curl_low_speed_limit = -1;
 static long curl_low_speed_time = -1;
+static long curl_max_receive_speed;
 static int curl_ftp_no_epsv;
 static const char *curl_http_proxy;
 static const char *http_proxy_authmethod;
@@ -359,6 +360,13 @@ static int http_options(const char *var, const char *value, void *cb)
 	}
 	if (!strcmp("http.lowspeedtime", var)) {
 		curl_low_speed_time = (long)git_config_int(var, value);
+		return 0;
+	}
+
+	if (!strcmp("http.maxreceivespeed", var)) {
+		curl_max_receive_speed = (long)git_config_int(var, value);
+		if (curl_max_receive_speed < 0)
+			die(_("negative values not allowed for http.maxreceivespeed"));
 		return 0;
 	}
 
@@ -974,6 +982,10 @@ static CURL *get_curl_handle(void)
 				 curl_low_speed_time);
 	}
 
+	if (curl_max_receive_speed >= 0)
+		curl_easy_setopt(result, CURLOPT_MAX_RECV_SPEED_LARGE,
+				 (curl_off_t)curl_max_receive_speed);
+
 	curl_easy_setopt(result, CURLOPT_MAXREDIRS, 20);
 #if LIBCURL_VERSION_NUM >= 0x071301
 	curl_easy_setopt(result, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL);
@@ -1105,6 +1117,8 @@ void http_init(struct remote *remote, const char *url, int proactive_auth)
 {
 	char *low_speed_limit;
 	char *low_speed_time;
+	char *mrs;
+	static const char mrs_env[] = "GIT_HTTP_MAX_RECEIVE_SPEED";
 	char *normalized_url;
 	struct urlmatch_config config = { STRING_LIST_INIT_DUP };
 
@@ -1196,6 +1210,13 @@ void http_init(struct remote *remote, const char *url, int proactive_auth)
 	low_speed_time = getenv("GIT_HTTP_LOW_SPEED_TIME");
 	if (low_speed_time != NULL)
 		curl_low_speed_time = strtol(low_speed_time, NULL, 10);
+
+	mrs = getenv(mrs_env);
+	if (mrs != NULL) {
+		curl_max_receive_speed = strtol(mrs, NULL, 10);
+		if (curl_max_receive_speed < 0)
+			die(_("negative values not allowed for %s"), mrs_env);
+	}
 
 	if (curl_ssl_verify == -1)
 		curl_ssl_verify = 1;
